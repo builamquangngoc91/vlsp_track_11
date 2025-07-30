@@ -4,7 +4,7 @@ import os
 import json
 import torch
 from datasets import Dataset
-from transformers import (
+from transformers (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
@@ -19,7 +19,7 @@ from peft import LoraConfig, get_peft_model
 MODEL_NAME = "Qwen/Qwen2-0.5B-Instruct"
 
 # Input dataset
-DATASET_PATH = "./training_data_with_context.json"
+DATASET_PATH = "/Users/tyler/Desktop/ngoc/vlsp_track_11/training_data_with_context.json"
 
 # Output directory for the fine-tuned model
 OUTPUT_DIR = "./qwen2-finetuned-model"
@@ -29,6 +29,14 @@ OUTPUT_DIR = "./qwen2-finetuned-model"
 # Load the JSON file manually
 with open(DATASET_PATH, 'r', encoding='utf-8') as f:
     data = json.load(f)
+
+# Pre-process the 'choices' field to be a JSON string
+for item in data:
+    if isinstance(item['choices'], dict):
+        item['choices'] = json.dumps(item['choices'], ensure_ascii=False)
+    else:
+        item['choices'] = "{}"
+
 
 # Convert the list of dictionaries to a dictionary of lists
 data_dict = {
@@ -42,7 +50,6 @@ data_dict = {
 }
 
 # Create a Dataset object from the dictionary
-# This method is more robust to inconsistencies than loading from a file.
 dataset = Dataset.from_dict(data_dict)
 
 # --- 3. Model and Tokenizer Loading ---
@@ -89,7 +96,9 @@ def format_prompt(sample):
     
     # Format choices for multiple choice questions
     if sample['question_type'] == 'Multiple choice' and sample['choices']:
-        choices_text = "\n".join([f"{key}: {value}" for key, value in sample['choices'].items()])
+        # Parse the JSON string back into a dictionary
+        choices_dict = json.loads(sample['choices'])
+        choices_text = "\n".join([f"{key}: {value}" for key, value in choices_dict.items()])
         question = f"{question}\n{choices_text}"
         
     # Get the answer
