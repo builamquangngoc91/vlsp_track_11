@@ -12,6 +12,7 @@ from transformers import (
     Trainer,
 )
 from peft import LoraConfig, get_peft_model
+import transformers
 
 # --- 1. Configuration ---
 
@@ -19,7 +20,7 @@ from peft import LoraConfig, get_peft_model
 MODEL_NAME = "Qwen/Qwen2-0.5B-Instruct"
 
 # Input dataset
-DATASET_PATH = "./training_data_with_context.json"
+DATASET_PATH = "/Users/tyler/Desktop/ngoc/vlsp_track_11/training_data_with_context.json"
 
 # Output directory for the fine-tuned model
 OUTPUT_DIR = "./qwen2-finetuned-model"
@@ -30,24 +31,13 @@ OUTPUT_DIR = "./qwen2-finetuned-model"
 with open(DATASET_PATH, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
-# Pre-process the 'choices' field to be a JSON string
+# Pre-process complex fields to be JSON strings to avoid Arrow type errors
 for item in data:
-    if isinstance(item['choices'], dict):
-        item['choices'] = json.dumps(item['choices'], ensure_ascii=False)
-    else:
-        item['choices'] = "{}"
-
+    item['choices'] = json.dumps(item.get('choices', {}), ensure_ascii=False)
+    item['relevant_articles_content'] = json.dumps(item.get('relevant_articles_content', []), ensure_ascii=False)
 
 # Convert the list of dictionaries to a dictionary of lists
-data_dict = {
-    "id": [item["id"] for item in data],
-    "image_id": [item["image_id"] for item in data],
-    "question": [item["question"] for item in data],
-    "question_type": [item["question_type"] for item in data],
-    "choices": [item["choices"] for item in data],
-    "answer": [item["answer"] for item in data],
-    "relevant_articles_content": [item["relevant_articles_content"] for item in data],
-}
+data_dict = {key: [d[key] for d in data] for key in data[0]}
 
 # Create a Dataset object from the dictionary
 dataset = Dataset.from_dict(data_dict)
@@ -56,7 +46,6 @@ dataset = Dataset.from_dict(data_dict)
 
 # Load the tokenizer
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
-# Qwen models don't have a default pad token, so we set it to eos_token
 tokenizer.pad_token = tokenizer.eos_token
 
 # Configure quantization to save memory (QLoRA)
@@ -71,7 +60,7 @@ bnb_config = BitsAndBytesConfig(
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     quantization_config=bnb_config,
-    device_map="auto", # Automatically maps model layers to available devices (GPU/CPU)
+    device_map="auto",
     trust_remote_code=True
 )
 
@@ -83,36 +72,31 @@ model.config.pretraining_tp = 1
 def format_prompt(sample):
     """
     Formats a data sample into a prompt for the model.
-    This is a crucial step where you define how the model receives the information.
-    
-    NOTE: For a true Vision-Language model, this function would also handle
-    loading and preprocessing the image associated with `sample['image_id']`.
     """
-    # Combine the text of all relevant articles into a single context string
-    context = "\n\n".join([article['article_text'] for article in sample['relevant_articles_content']])
+    # Parse the JSON strings back into Python objects
+    relevant_articles = json.loads(sample['relevant_articles_content'])
     
-    # Get the question
+    # Combine the text of all relevant articles into a single context string
+    context = "\n\n".join([article['article_text'] for article in relevant_articles])
+    
     question = sample['question']
     
     # Format choices for multiple choice questions
-    if sample['question_type'] == 'Multiple choice' and sample['choices']:
-        # Parse the JSON string back into a dictionary
+    if sample['question_type'] == 'Multiple choice':
         choices_dict = json.loads(sample['choices'])
-        choices_text = "\n".join([f"{key}: {value}" for key, value in choices_dict.items()])
-        question = f"{question}\n{choices_text}"
+        if choices_dict:
+            choices_text = "\n".join([f"{key}: {value}" for key, value in choices_dict.items()])
+            question = f"{question}\n{choices_text}"
         
-    # Get the answer
     answer = sample['answer']
     
     # Create the prompt using the Qwen-Instruct chat template
-    # This helps the model understand the roles of user and assistant
     messages = [
         {"role": "system", "content": "You are a helpful assistant that answers questions based on Vietnamese traffic law."},
         {"role": "user", "content": f"Based on the following legal articles, please answer the question.\n\n--- BEGIN CONTEXT ---\n{context}\n--- END CONTEXT ---\n\nQuestion: {question}"},
         {"role": "assistant", "content": answer}
     ]
     
-    # The tokenizer will apply the chat template
     prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
     
     return {"text": prompt}
