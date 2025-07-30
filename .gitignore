@@ -1,0 +1,10 @@
+# Ignore the dataset directory
+dataset/
+
+# Ignore image files
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.svg
