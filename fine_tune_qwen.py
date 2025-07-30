@@ -31,13 +31,27 @@ OUTPUT_DIR = "./qwen2-finetuned-model"
 with open(DATASET_PATH, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
-# Pre-process complex fields to be JSON strings to avoid Arrow type errors
+# Get all unique keys from all items to ensure consistency
+all_keys = set()
 for item in data:
-    item['choices'] = json.dumps(item.get('choices', {}), ensure_ascii=False)
-    item['relevant_articles_content'] = json.dumps(item.get('relevant_articles_content', []), ensure_ascii=False)
+    all_keys.update(item.keys())
+
+# Aggressively convert all values to strings to prevent any type inference errors
+stringified_data = []
+for item in data:
+    new_item = {}
+    for key in all_keys:
+        value = item.get(key)
+        if isinstance(value, (dict, list)):
+            new_item[key] = json.dumps(value, ensure_ascii=False)
+        elif value is None:
+            new_item[key] = ""  # Convert None to empty string
+        else:
+            new_item[key] = str(value)
+    stringified_data.append(new_item)
 
 # Convert the list of dictionaries to a dictionary of lists
-data_dict = {key: [d[key] for d in data] for key in data[0]}
+data_dict = {key: [d[key] for d in stringified_data] for key in all_keys}
 
 # Create a Dataset object from the dictionary
 dataset = Dataset.from_dict(data_dict)
@@ -76,9 +90,6 @@ def format_prompt(sample):
     # Parse the JSON strings back into Python objects
     relevant_articles = json.loads(sample['relevant_articles_content'])
     
-    # Combine the text of all relevant articles into a single context string
-    context = "\n\n".join([article['article_text'] for article in relevant_articles])
-    
     question = sample['question']
     
     # Format choices for multiple choice questions
@@ -89,6 +100,9 @@ def format_prompt(sample):
             question = f"{question}\n{choices_text}"
         
     answer = sample['answer']
+    
+    # Combine the text of all relevant articles into a single context string
+    context = "\n\n".join([article['article_text'] for article in relevant_articles])
     
     # Create the prompt using the Qwen-Instruct chat template
     messages = [
