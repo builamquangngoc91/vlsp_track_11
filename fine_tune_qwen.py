@@ -2,7 +2,7 @@
 
 import os
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, Features, Value, Sequence, ClassLabel
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -18,15 +18,40 @@ from peft import LoraConfig, get_peft_model
 MODEL_NAME = "Qwen/Qwen2-0.5B-Instruct"
 
 # Input dataset
-DATASET_PATH = "./training_data_with_context.json"
+DATASET_PATH = "/Users/tyler/Desktop/ngoc/vlsp_track_11/training_data_with_context.json"
 
 # Output directory for the fine-tuned model
 OUTPUT_DIR = "./qwen2-finetuned-model"
 
 # --- 2. Data Loading and Preparation ---
 
-# Load the dataset from the JSON file
-dataset = load_dataset("json", data_files=DATASET_PATH, split="train")
+# Define the dataset features to avoid type inference errors
+features = Features({
+    'id': Value('string'),
+    'image_id': Value('string'),
+    'question': Value('string'),
+    'question_type': Value('string'),
+    'choices': {
+        'A': Value('string'),
+        'B': Value('string'),
+        'C': Value('string'),
+        'D': Value('string')
+    },
+    'answer': Value('string'),
+    'relevant_articles_content': Sequence({
+        'law_id': Value('string'),
+        'law_title': Value('string'),
+        'article_id': Value('string'),
+        'article_title': Value('string'),
+        'article_text': Value('string'),
+        'tables': Sequence(Value('string')), # Assuming tables are strings for simplicity
+        'images': Sequence(Value('string'))
+    })
+})
+
+
+# Load the dataset from the JSON file with the defined features
+dataset = load_dataset("json", data_files=DATASET_PATH, features=features, split="train")
 
 # --- 3. Model and Tokenizer Loading ---
 
