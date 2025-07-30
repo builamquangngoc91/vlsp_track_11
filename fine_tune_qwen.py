@@ -4,7 +4,7 @@ import os
 import json
 import torch
 from datasets import Dataset
-from transformers (
+from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
