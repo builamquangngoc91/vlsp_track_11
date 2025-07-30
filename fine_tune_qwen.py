@@ -1,8 +1,9 @@
 
 
 import os
+import json
 import torch
-from datasets import load_dataset, Features, Value, Sequence, ClassLabel
+from datasets import Dataset
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -18,40 +19,31 @@ from peft import LoraConfig, get_peft_model
 MODEL_NAME = "Qwen/Qwen2-0.5B-Instruct"
 
 # Input dataset
-DATASET_PATH = "./training_data_with_context.json"
+DATASET_PATH = "/Users/tyler/Desktop/ngoc/vlsp_track_11/training_data_with_context.json"
 
 # Output directory for the fine-tuned model
 OUTPUT_DIR = "./qwen2-finetuned-model"
 
 # --- 2. Data Loading and Preparation ---
 
-# Define the dataset features to avoid type inference errors
-features = Features({
-    'id': Value('string'),
-    'image_id': Value('string'),
-    'question': Value('string'),
-    'question_type': Value('string'),
-    'choices': {
-        'A': Value('string'),
-        'B': Value('string'),
-        'C': Value('string'),
-        'D': Value('string')
-    },
-    'answer': Value('string'),
-    'relevant_articles_content': Sequence({
-        'law_id': Value('string'),
-        'law_title': Value('string'),
-        'article_id': Value('string'),
-        'article_title': Value('string'),
-        'article_text': Value('string'),
-        'tables': Sequence(Value('string')), # Assuming tables are strings for simplicity
-        'images': Sequence(Value('string'))
-    })
-})
+# Load the JSON file manually
+with open(DATASET_PATH, 'r', encoding='utf-8') as f:
+    data = json.load(f)
 
+# Convert the list of dictionaries to a dictionary of lists
+data_dict = {
+    "id": [item["id"] for item in data],
+    "image_id": [item["image_id"] for item in data],
+    "question": [item["question"] for item in data],
+    "question_type": [item["question_type"] for item in data],
+    "choices": [item["choices"] for item in data],
+    "answer": [item["answer"] for item in data],
+    "relevant_articles_content": [item["relevant_articles_content"] for item in data],
+}
 
-# Load the dataset from the JSON file with the defined features
-dataset = load_dataset("json", data_files=DATASET_PATH, features=features, split="train")
+# Create a Dataset object from the dictionary
+# This method is more robust to inconsistencies than loading from a file.
+dataset = Dataset.from_dict(data_dict)
 
 # --- 3. Model and Tokenizer Loading ---
 
