@@ -10,17 +10,12 @@ import re
 
 # --- 1. Configuration ---
 
-# Update the model name to Qwen2.5-VL
 MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
-
-# Update the path to the new fine-tuned adapter
 ADAPTER_PATH = "./qwen2.5-vl-finetuned-model"
-
-# Input test dataset
-TEST_DATA_PATH = "./dataset/test/vlsp_2025_public_test_task2.json"
-
-# Output submission file
+TEST_TASK1_PATH = "./dataset/test/vlsp_2025_public_test_task1.json"
+TEST_TASK2_PATH = "./dataset/test/vlsp_2025_public_test_task2.json"
 SUBMISSION_PATH = "./submission.json"
+IMAGE_PATH_PREFIX = "dataset/test/public_test_images/"
 
 # --- 2. Load Model and Tokenizer ---
 
@@ -28,31 +23,36 @@ print("Loading model and tokenizer...")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Use the correct AutoModel class for Vision-Language models
 model = AutoModelForVision2Seq.from_pretrained(
     MODEL_NAME,
     device_map="auto",
     trust_remote_code=True
 )
 
-# Load the LoRA adapter
 print("Loading LoRA adapter...")
 model = PeftModel.from_pretrained(model, ADAPTER_PATH)
-
 print("Model loaded successfully.")
 
 # --- 3. Load and Prepare Test Data ---
 
-print(f"Loading test data from {TEST_DATA_PATH}...")
-with open(TEST_DATA_PATH, 'r', encoding='utf-8') as f:
-    test_data = json.load(f)
+print("Loading and combining test data...")
+with open(TEST_TASK1_PATH, 'r', encoding='utf-8') as f:
+    test_data1 = json.load(f)
+with open(TEST_TASK2_PATH, 'r', encoding='utf-8') as f:
+    test_data2 = json.load(f)
+
+# Combine data from both tasks
+combined_test_data = test_data1 + test_data2
+
+# Add the full path to the image_id
+for item in combined_test_data:
+    item['image_id'] = f"{IMAGE_PATH_PREFIX}{item['image_id']}.jpg"
+
+print(f"Total test samples: {len(combined_test_data)}")
 
 # --- 4. Inference ---
 
 def format_inference_prompt(sample):
-    """
-    Formats a test sample into a multimodal prompt for the Qwen-VL model.
-    """
     question = sample['question']
     image_path = sample['image_id']
     
@@ -75,9 +75,6 @@ def format_inference_prompt(sample):
     return prompt
 
 def extract_answer(generated_text):
-    """
-    Extracts the most likely answer from the model's raw output.
-    """
     parts = generated_text.split("<|im_start|>assistant")
     if len(parts) > 1:
         response = parts[-1].replace("<|im_end|>", "").strip()
@@ -87,7 +84,7 @@ def extract_answer(generated_text):
 
 print("Generating predictions...")
 predictions = []
-for item in test_data:
+for item in combined_test_data:
     prompt = format_inference_prompt(item)
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     
@@ -107,7 +104,7 @@ for item in test_data:
     })
     
     if len(predictions) % 10 == 0:
-        print(f"  Processed {len(predictions)}/{len(test_data)} samples...")
+        print(f"  Processed {len(predictions)}/{len(combined_test_data)} samples...")
 
 print("Prediction generation complete.")
 
