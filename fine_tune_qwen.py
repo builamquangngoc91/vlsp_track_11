@@ -15,7 +15,7 @@ from PIL import Image
 # --- 1. Configuration ---
 
 # Model and tokenizer names for the Vision-Language model
-MODEL_NAME = "Qwen/Qwen1.5-VL-Chat"
+MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
 
 # Input dataset
 DATASET_PATH = "./training_data_with_context.json"
