@@ -1,6 +1,8 @@
+torch
 transformers
 datasets
 peft
 bitsandbytes
 accelerate
 sentencepiece
+Pillow
