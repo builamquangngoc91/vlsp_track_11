@@ -1,10 +1,8 @@
-
-
 import os
 import json
 import torch
 from datasets import Dataset
-from transformers import (
+from transformers (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
@@ -20,7 +18,7 @@ import transformers
 MODEL_NAME = "Qwen/Qwen2-0.5B-Instruct"
 
 # Input dataset
-DATASET_PATH = "./training_data_with_context.json"
+DATASET_PATH = "/Users/tyler/Desktop/ngoc/vlsp_track_11/training_data_with_context.json"
 
 # Output directory for the fine-tuned model
 OUTPUT_DIR = "./qwen2-finetuned-model"
@@ -87,28 +85,18 @@ def format_prompt(sample):
     if sample['question_type'] == 'Multiple choice':
         choices_dict = json.loads(sample['choices'])
         if choices_dict:
-            choices_text = "
-".join([f"{key}: {value}" for key, value in choices_dict.items()])
-            question = f"{question}
-{choices_text}"
+            choices_text = "\n".join([f"{key}: {value}" for key, value in choices_dict.items()])
+            question = f"{question}\n{choices_text}"
         
     answer = sample['answer']
     
     # Combine the text of all relevant articles into a single context string
-    context = "
-
-".join([article['article_text'] for article in relevant_articles])
+    context = "\n\n".join([article['article_text'] for article in relevant_articles])
     
     # Create the prompt using the Qwen-Instruct chat template
     messages = [
         {"role": "system", "content": "You are a helpful assistant that answers questions based on Vietnamese traffic law."},
-        {"role": "user", "content": f"Based on the following legal articles, please answer the question.
-
---- BEGIN CONTEXT ---
-{context}
---- END CONTEXT ---
-
-Question: {question}"},
+        {"role": "user", "content": f"Based on the following legal articles, please answer the question.\n\n--- BEGIN CONTEXT ---\n{context}\n--- END CONTEXT ---\n\nQuestion: {question}"},
         {"role": "assistant", "content": answer}
     ]
     
