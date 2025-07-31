@@ -101,42 +101,42 @@ import gc
 # ... (rest of the script is the same until the loops) ...
 
 # --- 5. Process Task 1 ---
-print("\nProcessing Task 1...")
-with open(TEST_TASK1_PATH, 'r', encoding='utf-8') as f:
-    test_data1 = json.load(f)
+# print("\nProcessing Task 1...")
+# with open(TEST_TASK1_PATH, 'r', encoding='utf-8') as f:
+#     test_data1 = json.load(f)
 
-task1_predictions = []
-for i, item in enumerate(test_data1):
-    image_path = f"{IMAGE_PATH_PREFIX}{item['image_id']}.jpg"
-    retrieved_articles = retrieve_articles(item['question'])
-    prompt = format_inference_prompt(item['question'], image_path, retrieved_articles)
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+# task1_predictions = []
+# for i, item in enumerate(test_data1):
+#     image_path = f"{IMAGE_PATH_PREFIX}{item['image_id']}.jpg"
+#     retrieved_articles = retrieve_articles(item['question'])
+#     prompt = format_inference_prompt(item['question'], image_path, retrieved_articles)
+#     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     
-    with torch.no_grad():
-        outputs = model.generate(**inputs, max_new_tokens=20, do_sample=False)
+#     with torch.no_grad():
+#         outputs = model.generate(**inputs, max_new_tokens=20, do_sample=False)
     
-    generated_text = tokenizer.decode(outputs[0], skip_special_tokens=False)
-    answer = extract_answer(generated_text)
+#     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=False)
+#     answer = extract_answer(generated_text)
     
-    task1_predictions.append({
-        "id": item["id"],
-        "relevant_articles": [{"law_id": art["law_id"], "article_id": art["article_id"]} for art in retrieved_articles],
-        "answer": answer
-    })
+#     task1_predictions.append({
+#         "id": item["id"],
+#         "relevant_articles": [{"law_id": art["law_id"], "article_id": art["article_id"]} for art in retrieved_articles],
+#         "answer": answer
+#     })
     
-    # --- MEMORY OPTIMIZATION ---
-    del inputs
-    del outputs
-    torch.cuda.empty_cache()
-    gc.collect()
-    # -------------------------
+#     # --- MEMORY OPTIMIZATION ---
+#     del inputs
+#     del outputs
+#     torch.cuda.empty_cache()
+#     gc.collect()
+#     # -------------------------
     
-    print(f"  Processed Task 1 sample {i+1}/{len(test_data1)}")
+#     print(f"  Processed Task 1 sample {i+1}/{len(test_data1)}")
 
-print(f"Saving Task 1 submission file to {SUBMISSION_TASK1_PATH}...")
-with open(SUBMISSION_TASK1_PATH, 'w', encoding='utf-8') as f:
-    json.dump(task1_predictions, f, indent=4, ensure_ascii=False)
-print("Task 1 submission file created successfully!")
+# print(f"Saving Task 1 submission file to {SUBMISSION_TASK1_PATH}...")
+# with open(SUBMISSION_TASK1_PATH, 'w', encoding='utf-8') as f:
+#     json.dump(task1_predictions, f, indent=4, ensure_ascii=False)
+# print("Task 1 submission file created successfully!")
 
 
 # --- 6. Process Task 2 ---
