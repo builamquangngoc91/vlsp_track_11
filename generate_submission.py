@@ -81,6 +81,10 @@ def extract_answer(generated_text):
         return first_word
     return ""
 
+import gc
+
+# ... (rest of the script is the same until the loops) ...
+
 # --- 5. Process Task 1 ---
 print("\nProcessing Task 1...")
 with open(TEST_TASK1_PATH, 'r', encoding='utf-8') as f:
@@ -98,16 +102,20 @@ for i, item in enumerate(test_data1):
     
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=False)
     answer = extract_answer(generated_text)
-
-    print("prompt: ", prompt)
-    print("generated_text: ", generated_text)
-    print("answer: ", answer)
     
     task1_predictions.append({
         "id": item["id"],
         "relevant_articles": [{"law_id": art["law_id"], "article_id": art["article_id"]} for art in retrieved_articles],
         "answer": answer
     })
+    
+    # --- MEMORY OPTIMIZATION ---
+    del inputs
+    del outputs
+    torch.cuda.empty_cache()
+    gc.collect()
+    # -------------------------
+    
     print(f"  Processed Task 1 sample {i+1}/{len(test_data1)}")
 
 print(f"Saving Task 1 submission file to {SUBMISSION_TASK1_PATH}...")
@@ -144,6 +152,14 @@ for i, item in enumerate(test_data2):
         "id": item["id"],
         "answer": answer
     })
+    
+    # --- MEMORY OPTIMIZATION ---
+    del inputs
+    del outputs
+    torch.cuda.empty_cache()
+    gc.collect()
+    # -------------------------
+    
     print(f"  Processed Task 2 sample {i+1}/{len(test_data2)}")
 
 print(f"Saving Task 2 submission file to {SUBMISSION_TASK2_PATH}...")
