@@ -98,6 +98,10 @@ for i, item in enumerate(test_data1):
     
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=False)
     answer = extract_answer(generated_text)
+
+    print("prompt: ", prompt)
+    print("generated_text: ", generated_text)
+    print("answer: ", answer)
     
     task1_predictions.append({
         "id": item["id"],
