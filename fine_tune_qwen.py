@@ -3,7 +3,7 @@ import json
 import torch
 from datasets import Dataset
 from transformers import (
-    AutoModelForCausalLM,
+    AutoModelForVision2Seq,
     AutoTokenizer,
     TrainingArguments,
     Trainer,
@@ -14,13 +14,8 @@ from PIL import Image
 
 # --- 1. Configuration ---
 
-# Set the model name to the new Qwen2.5-VL model
 MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
-
-# Input dataset
 DATASET_PATH = "./training_data_with_context.json"
-
-# Output directory for the new fine-tuned model
 OUTPUT_DIR = "./qwen2.5-vl-finetuned-model"
 
 # --- 2. Data Loading and Preparation (Robust Method) ---
@@ -54,8 +49,8 @@ print("Loading model and tokenizer...")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Use AutoModelForCausalLM for Qwen2.5-VL
-model = AutoModelForCausalLM.from_pretrained(
+# Use the correct AutoModel class for Vision-Language models
+model = AutoModelForVision2Seq.from_pretrained(
     MODEL_NAME,
     device_map="auto",
     trust_remote_code=True

@@ -2,7 +2,7 @@ import os
 import json
 import torch
 from transformers import (
-    AutoModelForCausalLM,
+    AutoModelForVision2Seq,
     AutoTokenizer,
 )
 from peft import PeftModel
@@ -28,8 +28,8 @@ print("Loading model and tokenizer...")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Use AutoModelForCausalLM for Qwen2.5-VL
-model = AutoModelForCausalLM.from_pretrained(
+# Use the correct AutoModel class for Vision-Language models
+model = AutoModelForVision2Seq.from_pretrained(
     MODEL_NAME,
     device_map="auto",
     trust_remote_code=True
