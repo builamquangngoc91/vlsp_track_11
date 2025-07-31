@@ -14,7 +14,7 @@ from PIL import Image
 
 # --- 1. Configuration ---
 
-MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
+MODEL_NAME = "Qwen/Qwen1.5-VL-Chat"
 DATASET_PATH = "./training_data_with_context.json"
 OUTPUT_DIR = "./qwen2.5-vl-finetuned-model"
 

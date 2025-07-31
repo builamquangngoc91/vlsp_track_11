@@ -6,4 +6,4 @@ bitsandbytes
 accelerate
 sentencepiece
 Pillow
-autoawq>=0.1.8
+scikit-learn

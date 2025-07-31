@@ -10,8 +10,8 @@ import re
 
 # --- 1. Configuration ---
 
-MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
-ADAPTER_PATH = "./qwen2.5-vl-finetuned-model"
+MODEL_NAME = "Qwen/Qwen1.5-VL-Chat"
+ADAPTER_PATH = "./qwen-vl-finetuned-model"
 TEST_TASK1_PATH = "./dataset/test/vlsp_2025_public_test_task1.json"
 TEST_TASK2_PATH = "./dataset/test/vlsp_2025_public_test_task2.json"
 SUBMISSION_PATH = "./submission.json"
