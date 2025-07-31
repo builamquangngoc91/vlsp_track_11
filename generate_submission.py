@@ -58,20 +58,25 @@ print("Retriever built successfully.")
 # --- 4. Inference Functions ---
 
 def format_inference_prompt(question, image_path, relevant_articles):
-    """Formats a prompt with context, truncating if necessary."""
-    # Combine article text into a single context string
-    context = "\n\n".join([article['article_text'] for article in relevant_articles])
+    """Formats a prompt with context, aggressively truncating to fit the model's limit."""
     
-    # --- Truncation Logic ---
-    # Tokenize the context to check its length
+    # --- Aggressive Truncation Logic ---
+    # Define a safe maximum for the entire prompt to avoid edge cases
+    max_total_length = 32000
+    
+    # Tokenize the question to know its length
+    question_tokens = tokenizer.encode(question, add_special_tokens=False)
+    
+    # Calculate the remaining budget for the context, leaving a buffer
+    context_budget = max_total_length - len(question_tokens) - 512 # 512 tokens for safety
+    
+    # Combine article text and tokenize
+    context = "\n\n".join([article['article_text'] for article in relevant_articles])
     context_tokens = tokenizer.encode(context, add_special_tokens=False)
     
-    # Define a safe max length for the context to leave room for the question
-    max_context_length = 30000 
-    
-    if len(context_tokens) > max_context_length:
-        # Truncate the tokens and decode back to a string
-        truncated_tokens = context_tokens[:max_context_length]
+    # Truncate the context if it exceeds the budget
+    if len(context_tokens) > context_budget:
+        truncated_tokens = context_tokens[:context_budget]
         context = tokenizer.decode(truncated_tokens)
     # -------------------------
 
@@ -87,6 +92,7 @@ def format_inference_prompt(question, image_path, relevant_articles):
         tokenize=False,
         add_generation_prompt=True
     )
+
 
 def extract_answer(generated_text):
     parts = generated_text.split("<|im_start|>assistant")
