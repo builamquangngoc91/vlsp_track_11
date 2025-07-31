@@ -10,8 +10,9 @@ import re
 
 # --- 1. Configuration ---
 
-MODEL_NAME = "Qwen/Qwen1.5-VL-Chat"
-ADAPTER_PATH = "./qwen-vl-finetuned-model"
+# Update the model name to the specified 7B VL model
+MODEL_NAME = "Qwen/Qwen2-VL-7B-Instruct"
+ADAPTER_PATH = "./qwen2-vl-7b-finetuned-model" # Path to the new adapter
 TEST_TASK1_PATH = "./dataset/test/vlsp_2025_public_test_task1.json"
 TEST_TASK2_PATH = "./dataset/test/vlsp_2025_public_test_task2.json"
 SUBMISSION_PATH = "./submission.json"
@@ -19,7 +20,7 @@ IMAGE_PATH_PREFIX = "dataset/test/public_test_images/"
 
 # --- 2. Load Model and Tokenizer ---
 
-print("Loading model and tokenizer...")
+print(f"Loading model and tokenizer: {MODEL_NAME}")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
@@ -41,10 +42,8 @@ with open(TEST_TASK1_PATH, 'r', encoding='utf-8') as f:
 with open(TEST_TASK2_PATH, 'r', encoding='utf-8') as f:
     test_data2 = json.load(f)
 
-# Combine data from both tasks
 combined_test_data = test_data1 + test_data2
 
-# Add the full path to the image_id
 for item in combined_test_data:
     item['image_id'] = f"{IMAGE_PATH_PREFIX}{item['image_id']}.jpg"
 

@@ -14,9 +14,10 @@ from PIL import Image
 
 # --- 1. Configuration ---
 
-MODEL_NAME = "Qwen/Qwen1.5-VL-Chat"
+# Set the model name to the specified 7B VL model
+MODEL_NAME = "Qwen/Qwen2-VL-7B-Instruct"
 DATASET_PATH = "./training_data_with_context.json"
-OUTPUT_DIR = "./qwen2.5-vl-finetuned-model"
+OUTPUT_DIR = "./qwen2-vl-7b-finetuned-model" # New output directory
 
 # --- 2. Data Loading and Preparation (Robust Method) ---
 
@@ -45,11 +46,10 @@ print("Data loaded successfully.")
 
 # --- 3. Model and Tokenizer Loading ---
 
-print("Loading model and tokenizer...")
+print(f"Loading model and tokenizer: {MODEL_NAME}")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Use the correct AutoModel class for Vision-Language models
 model = AutoModelForVision2Seq.from_pretrained(
     MODEL_NAME,
     device_map="auto",
