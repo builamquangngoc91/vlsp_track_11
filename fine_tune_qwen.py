@@ -3,7 +3,7 @@ import json
 import torch
 from datasets import Dataset
 from transformers import (
-    AutoModelForCausalLM,
+    AutoModelForVision2Seq,
     AutoTokenizer,
     TrainingArguments,
     Trainer,
@@ -65,7 +65,7 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
 # Load the model
-model = AutoModelForCausalLM.from_pretrained(
+model = AutoModelForVision2Seq.from_pretrained(
     MODEL_NAME,
     device_map="auto",
     trust_remote_code=True
