@@ -62,18 +62,9 @@ dataset = Dataset.from_dict(data_dict)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Configure quantization to save memory (QLoRA)
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.float16,
-    bnb_4bit_use_double_quant=False,
-)
-
-# Load the model with quantization
+# Load the model without quantization
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
-    quantization_config=bnb_config,
     device_map="auto",
     trust_remote_code=True
 )
@@ -96,18 +87,28 @@ def format_prompt(sample):
     if sample['question_type'] == 'Multiple choice':
         choices_dict = json.loads(sample['choices'])
         if choices_dict:
-            choices_text = "\n".join([f"{key}: {value}" for key, value in choices_dict.items()])
-            question = f"{question}\n{choices_text}"
+            choices_text = "
+".join([f"{key}: {value}" for key, value in choices_dict.items()])
+            question = f"{question}
+{choices_text}"
         
     answer = sample['answer']
     
     # Combine the text of all relevant articles into a single context string
-    context = "\n\n".join([article['article_text'] for article in relevant_articles])
+    context = "
+
+".join([article['article_text'] for article in relevant_articles])
     
     # Create the prompt using the Qwen-Instruct chat template
     messages = [
         {"role": "system", "content": "You are a helpful assistant that answers questions based on Vietnamese traffic law."},
-        {"role": "user", "content": f"Based on the following legal articles, please answer the question.\n\n--- BEGIN CONTEXT ---\n{context}\n--- END CONTEXT ---\n\nQuestion: {question}"},
+        {"role": "user", "content": f"Based on the following legal articles, please answer the question.
+
+--- BEGIN CONTEXT ---
+{context}
+--- END CONTEXT ---
+
+Question: {question}"},
         {"role": "assistant", "content": answer}
     ]
     
@@ -116,7 +117,30 @@ def format_prompt(sample):
     return {"text": prompt}
 
 # Apply the formatting to the entire dataset
-processed_dataset = dataset.map(format_prompt, remove_columns=list(dataset.features))
+processed_dataset = dataset.map(format_prompt, remove_columns=['id', 'image_id', 'question', 'question_type', 'choices', 'answer', 'relevant_articles_content'])
+
+
+# --- 4.5 Tokenization ---
+
+def tokenize_function(examples):
+    """Tokenizes the text column and creates labels."""
+    tokenized_output = tokenizer(
+        examples["text"],
+        truncation=True,
+        padding=False, # The data collator will handle padding
+        max_length=1024, # Adjust as needed
+    )
+    # For language modeling, the labels are the input_ids
+    tokenized_output["labels"] = tokenized_output["input_ids"][:]
+    return tokenized_output
+
+# Tokenize the dataset
+tokenized_dataset = processed_dataset.map(
+    tokenize_function,
+    batched=True,
+    remove_columns=list(processed_dataset.features) # Remove the old 'text' column
+)
+
 
 # --- 5. PEFT (LoRA) Configuration ---
 
@@ -145,7 +169,7 @@ training_args = TrainingArguments(
     num_train_epochs=1,  # A single epoch is often enough for fine-tuning
     per_device_train_batch_size=2, # Lower this if you run out of memory
     gradient_accumulation_steps=4, # Simulates a larger batch size
-    optim="paged_adamw_8bit",
+    optim="adamw_torch", # Standard AdamW optimizer
     save_steps=50,
     logging_steps=10,
     learning_rate=2e-4,
@@ -165,7 +189,7 @@ training_args = TrainingArguments(
 trainer = Trainer(
     model=peft_model,
     args=training_args,
-    train_dataset=processed_dataset,
+    train_dataset=tokenized_dataset,
     tokenizer=tokenizer,
     # This collator handles padding for you
     data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
