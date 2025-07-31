@@ -35,10 +35,9 @@ model = AutoModelForVision2Seq.from_pretrained(
     trust_remote_code=True
 )
 
-# Load the LoRA adapter and merge it with the base model
-print("Loading and merging LoRA adapter...")
+# Load the LoRA adapter
+print("Loading LoRA adapter...")
 model = PeftModel.from_pretrained(model, ADAPTER_PATH)
-model = model.merge_and_unload()
 
 print("Model loaded successfully.")
 
