@@ -23,17 +23,43 @@ DATASET_PATH = "./training_data_with_context.json"
 # Output directory for the fine-tuned model
 OUTPUT_DIR = "./qwen-vl-finetuned-model"
 
-# --- 2. Data Loading and Preparation ---
+# --- 2. Data Loading and Preparation (Robust Method) ---
 
+print("Loading and aggressively cleaning data...")
 # Load the JSON file manually
 with open(DATASET_PATH, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
-# Create a Dataset object
-dataset = Dataset.from_list(data)
+# Get all unique keys from all items to ensure consistency
+all_keys = set()
+for item in data:
+    all_keys.update(item.keys())
+
+# Aggressively convert all values to strings to prevent any type inference errors
+stringified_data = []
+for item in data:
+    new_item = {}
+    for key in all_keys:
+        value = item.get(key)
+        if isinstance(value, (dict, list)):
+            # Serialize complex types into JSON strings
+            new_item[key] = json.dumps(value, ensure_ascii=False)
+        elif value is None:
+            new_item[key] = ""  # Convert None to empty string
+        else:
+            new_item[key] = str(value) # Convert all other types to string
+    stringified_data.append(new_item)
+
+# Convert the list of dictionaries to a dictionary of lists
+data_dict = {key: [d[key] for d in stringified_data] for key in all_keys}
+
+# Create a Dataset object from the cleaned dictionary
+dataset = Dataset.from_dict(data_dict)
+print("Data loaded successfully.")
 
 # --- 3. Model and Tokenizer Loading ---
 
+print("Loading model and tokenizer...")
 # Load the tokenizer
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
@@ -44,6 +70,7 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto",
     trust_remote_code=True
 )
+print("Model and tokenizer loaded.")
 
 # --- 4. Data Preprocessing for Vision-Language ---
 
@@ -51,15 +78,15 @@ def format_multimodal_prompt(sample):
     """
     Formats a data sample into a multimodal prompt for the Qwen-VL model.
     """
+    # De-serialize the stringified fields
     question = sample['question']
+    answer = sample['answer']
     image_path = sample['image_id']
     
     # Verify the image exists before creating the prompt
     if not os.path.exists(image_path):
-        # If the image is missing, create a text-only prompt
         messages = [{"role": "user", "content": question}]
     else:
-        # For Qwen-VL, the prompt includes an <img> tag with the path
         messages = [{
             "role": "user",
             "content": [
@@ -68,10 +95,8 @@ def format_multimodal_prompt(sample):
             ]
         }]
 
-    # Add the answer for the training prompt
-    messages.append({"role": "assistant", "content": sample['answer']})
+    messages.append({"role": "assistant", "content": answer})
     
-    # Apply the chat template
     prompt = tokenizer.apply_chat_template(
         messages,
         tokenize=False,
@@ -80,7 +105,7 @@ def format_multimodal_prompt(sample):
     
     return {"text": prompt}
 
-# Apply the formatting to the entire dataset
+print("Formatting prompts...")
 processed_dataset = dataset.map(format_multimodal_prompt, remove_columns=list(dataset.features))
 
 # --- 5. Tokenization ---
@@ -91,10 +116,10 @@ def tokenize_function(examples):
         examples["text"],
         truncation=True,
         padding="max_length",
-        max_length=1024, # Adjust as needed
+        max_length=1024,
     )
 
-# Tokenize the dataset
+print("Tokenizing dataset...")
 tokenized_dataset = processed_dataset.map(
     tokenize_function,
     batched=True,
@@ -109,7 +134,6 @@ lora_config = LoraConfig(
     lora_dropout=0.05,
     bias="none",
     task_type="CAUSAL_LM",
-    # Target modules for Qwen-VL are different from text-only models
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj"]
 )
 
@@ -120,7 +144,7 @@ peft_model = get_peft_model(model, lora_config)
 training_args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     num_train_epochs=1,
-    per_device_train_batch_size=1, # VL models are memory-intensive, use a small batch size
+    per_device_train_batch_size=1,
     gradient_accumulation_steps=8,
     optim="adamw_torch",
     save_steps=50,
