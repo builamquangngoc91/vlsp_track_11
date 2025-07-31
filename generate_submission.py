@@ -58,8 +58,23 @@ print("Retriever built successfully.")
 # --- 4. Inference Functions ---
 
 def format_inference_prompt(question, image_path, relevant_articles):
+    """Formats a prompt with context, truncating if necessary."""
+    # Combine article text into a single context string
     context = "\n\n".join([article['article_text'] for article in relevant_articles])
     
+    # --- Truncation Logic ---
+    # Tokenize the context to check its length
+    context_tokens = tokenizer.encode(context, add_special_tokens=False)
+    
+    # Define a safe max length for the context to leave room for the question
+    max_context_length = 30000 
+    
+    if len(context_tokens) > max_context_length:
+        # Truncate the tokens and decode back to a string
+        truncated_tokens = context_tokens[:max_context_length]
+        context = tokenizer.decode(truncated_tokens)
+    # -------------------------
+
     content = [{"type": "text", "text": f"Based on the following legal articles, please answer the question.\n\n--- BEGIN CONTEXT ---\n{context}\n--- END CONTEXT ---\n\nQuestion: {question}"}]
     
     if os.path.exists(image_path):
