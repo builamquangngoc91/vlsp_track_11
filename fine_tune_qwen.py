@@ -3,7 +3,7 @@ import json
 import torch
 from datasets import Dataset
 from transformers import (
-    AutoModelForVision2Seq,
+    AutoModelForCausalLM,
     AutoTokenizer,
     TrainingArguments,
     Trainer,
@@ -14,58 +14,48 @@ from PIL import Image
 
 # --- 1. Configuration ---
 
-# Model and tokenizer names for the Vision-Language model
+# Set the model name to the new Qwen2.5-VL model
 MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
 
 # Input dataset
 DATASET_PATH = "./training_data_with_context.json"
 
-# Output directory for the fine-tuned model
-OUTPUT_DIR = "./qwen-vl-finetuned-model"
+# Output directory for the new fine-tuned model
+OUTPUT_DIR = "./qwen2.5-vl-finetuned-model"
 
 # --- 2. Data Loading and Preparation (Robust Method) ---
 
 print("Loading and aggressively cleaning data...")
-# Load the JSON file manually
 with open(DATASET_PATH, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
-# Get all unique keys from all items to ensure consistency
-all_keys = set()
-for item in data:
-    all_keys.update(item.keys())
+all_keys = set(k for item in data for k in item.keys())
 
-# Aggressively convert all values to strings to prevent any type inference errors
 stringified_data = []
 for item in data:
     new_item = {}
     for key in all_keys:
         value = item.get(key)
         if isinstance(value, (dict, list)):
-            # Serialize complex types into JSON strings
             new_item[key] = json.dumps(value, ensure_ascii=False)
         elif value is None:
-            new_item[key] = ""  # Convert None to empty string
+            new_item[key] = ""
         else:
-            new_item[key] = str(value) # Convert all other types to string
+            new_item[key] = str(value)
     stringified_data.append(new_item)
 
-# Convert the list of dictionaries to a dictionary of lists
-data_dict = {key: [d[key] for d in stringified_data] for key in all_keys}
-
-# Create a Dataset object from the cleaned dictionary
+data_dict = {key: [d.get(key, "") for d in stringified_data] for key in all_keys}
 dataset = Dataset.from_dict(data_dict)
 print("Data loaded successfully.")
 
 # --- 3. Model and Tokenizer Loading ---
 
 print("Loading model and tokenizer...")
-# Load the tokenizer
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Load the model
-model = AutoModelForVision2Seq.from_pretrained(
+# Use AutoModelForCausalLM for Qwen2.5-VL
+model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     device_map="auto",
     trust_remote_code=True
@@ -75,15 +65,10 @@ print("Model and tokenizer loaded.")
 # --- 4. Data Preprocessing for Vision-Language ---
 
 def format_multimodal_prompt(sample):
-    """
-    Formats a data sample into a multimodal prompt for the Qwen-VL model.
-    """
-    # De-serialize the stringified fields
     question = sample['question']
     answer = sample['answer']
     image_path = sample['image_id']
     
-    # Verify the image exists before creating the prompt
     if not os.path.exists(image_path):
         messages = [{"role": "user", "content": question}]
     else:
@@ -111,7 +96,6 @@ processed_dataset = dataset.map(format_multimodal_prompt, remove_columns=list(da
 # --- 5. Tokenization ---
 
 def tokenize_function(examples):
-    """Tokenizes the text column."""
     return tokenizer(
         examples["text"],
         truncation=True,
@@ -134,7 +118,7 @@ lora_config = LoraConfig(
     lora_dropout=0.05,
     bias="none",
     task_type="CAUSAL_LM",
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj"]
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
 )
 
 peft_model = get_peft_model(model, lora_config)
@@ -143,7 +127,7 @@ peft_model = get_peft_model(model, lora_config)
 
 training_args = TrainingArguments(
     output_dir=OUTPUT_DIR,
-    num_train_epochs=10,
+    num_train_epochs=1,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=8,
     optim="adamw_torch",
@@ -169,7 +153,6 @@ trainer = Trainer(
     data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
 )
 
-# Start the training process
 print("Starting Vision-Language model fine-tuning...")
 trainer.train()
 

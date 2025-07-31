@@ -2,7 +2,7 @@ import os
 import json
 import torch
 from transformers import (
-    AutoModelForVision2Seq,
+    AutoModelForCausalLM,
     AutoTokenizer,
 )
 from peft import PeftModel
@@ -10,11 +10,11 @@ import re
 
 # --- 1. Configuration ---
 
-# Base Model and Tokenizer for the Vision-Language model
-MODEL_NAME = "Qwen/Qwen1.5-VL-Chat"
+# Update the model name to Qwen2.5-VL
+MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
 
-# Path to the fine-tuned LoRA adapter
-ADAPTER_PATH = "./qwen-vl-finetuned-model"
+# Update the path to the new fine-tuned adapter
+ADAPTER_PATH = "./qwen2.5-vl-finetuned-model"
 
 # Input test dataset
 TEST_DATA_PATH = "./dataset/test/vlsp_2025_public_test_task2.json"
@@ -25,15 +25,13 @@ SUBMISSION_PATH = "./submission.json"
 # --- 2. Load Model and Tokenizer ---
 
 print("Loading model and tokenizer...")
-# Load the tokenizer
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Load the base model
-model = AutoModelForVision2Seq.from_pretrained(
+# Use AutoModelForCausalLM for Qwen2.5-VL
+model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     device_map="auto",
-    torch_dtype=torch.float16,
     trust_remote_code=True
 )
 
@@ -59,8 +57,6 @@ def format_inference_prompt(sample):
     question = sample['question']
     image_path = sample['image_id']
     
-    # For Qwen-VL, the prompt includes an <img> tag with the path
-    # The test set should have the images, but we handle the case where it might not.
     if not os.path.exists(image_path):
         messages = [{"role": "user", "content": question}]
     else:
@@ -83,12 +79,9 @@ def extract_answer(generated_text):
     """
     Extracts the most likely answer from the model's raw output.
     """
-    # This is a simplified extraction logic. It looks for the content
-    # after the final 'assistant' turn in the generated text.
     parts = generated_text.split("<|im_start|>assistant")
     if len(parts) > 1:
         response = parts[-1].replace("<|im_end|>", "").strip()
-        # Take the first word/letter as the answer
         first_word = re.split(r'[\s\.\,]', response)[0]
         return first_word
     return ""
