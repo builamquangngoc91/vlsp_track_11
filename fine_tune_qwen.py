@@ -112,9 +112,10 @@ def tokenize_function(examples):
     tokenized_output = tokenizer(
         examples["text"],
         truncation=True,
-        padding=False,
-        max_length=1024,
+        padding="max_length", # Pad to the max_length
+        max_length=1024, # Adjust as needed
     )
+    # For language modeling, the labels are the input_ids
     tokenized_output["labels"] = tokenized_output["input_ids"][:]
     return tokenized_output
 
