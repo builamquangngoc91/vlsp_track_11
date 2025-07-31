@@ -143,7 +143,7 @@ peft_model = get_peft_model(model, lora_config)
 
 training_args = TrainingArguments(
     output_dir=OUTPUT_DIR,
-    num_train_epochs=1,
+    num_train_epochs=10,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=8,
     optim="adamw_torch",
